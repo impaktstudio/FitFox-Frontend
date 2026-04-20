@@ -58,7 +58,7 @@ curl -s http://localhost:3000/api/ready | jq
 Expected:
 
 - HTTP `200`
-- local missing providers such as GCS, Qdrant, Vertex, Stripe, GPU backend, and Mastra are `disabled`, not `failed`
+- local missing providers such as Railway, Qdrant, OpenRouter, Stripe, GPU backend, and Mastra are `disabled`, not `failed`
 - configured providers report `configured`
 
 ## 4. Test auth mode
@@ -124,7 +124,7 @@ PostHog-backed check:
    - `backend-use-local-processing`
    - `backend-use-gpu-worker`
    - `backend-use-qdrant-sparse`
-   - `backend-use-vertex-ai`
+   - `backend-use-openrouter`
    - `backend-use-mastra-workflow`
    - `billing-stripe-enabled`
 4. Restart the dev server.

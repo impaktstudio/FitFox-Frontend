@@ -27,6 +27,11 @@ const optionalUrl = z
   .transform((value) => (value === "" ? undefined : value))
   .pipe(z.url().optional());
 
+const optionalEnvString = z
+  .string()
+  .optional()
+  .transform((value) => (value === "" ? undefined : value));
+
 const uuid = z.uuid();
 
 const envSchema = z.object({
@@ -41,11 +46,17 @@ const envSchema = z.object({
     .transform((value) => (value === "" ? undefined : value))
     .pipe(uuid.optional()),
   DATABASE_URL: optionalUrl,
-  GCS_BUCKET_NAME: z.string().optional(),
+  SUPABASE_URL: optionalUrl,
+  SUPABASE_API_KEY: optionalEnvString,
+  RAILWAY_USER_WARDROBE_MEDIA_BUCKET_NAME: optionalEnvString,
+  RAILWAY_LOOK_MEDIA_BUCKET_NAME: optionalEnvString,
+  RAILWAY_REFERENCE_STYLE_LIBRARY_BUCKET_NAME: optionalEnvString,
+  RAILWAY_MODEL_PROCESSING_BUCKET_NAME: optionalEnvString,
+  RAILWAY_EXPORTS_BUCKET_NAME: optionalEnvString,
   QDRANT_URL: optionalUrl,
   QDRANT_API_KEY: z.string().optional(),
-  VERTEX_PROJECT_ID: z.string().optional(),
-  VERTEX_LOCATION: z.string().optional(),
+  OPENROUTER_API_KEY: optionalEnvString,
+  OPENROUTER_BASE_URL: optionalUrl.default("https://openrouter.ai/api/v1"),
   POSTHOG_API_KEY: z.string().optional(),
   POSTHOG_HOST: optionalUrl.default("https://us.i.posthog.com"),
   POSTHOG_DISABLED: booleanFromEnv.default(false),
@@ -57,12 +68,19 @@ const envSchema = z.object({
   FEATURE_BACKEND_USE_LOCAL_PROCESSING: booleanFromEnv.default(true),
   FEATURE_BACKEND_USE_GPU_WORKER: booleanFromEnv.default(false),
   FEATURE_BACKEND_USE_QDRANT_SPARSE: booleanFromEnv.default(false),
-  FEATURE_BACKEND_USE_VERTEX_AI: booleanFromEnv.default(false),
+  FEATURE_BACKEND_USE_OPENROUTER: booleanFromEnv.default(false),
   FEATURE_BACKEND_USE_MASTRA_WORKFLOW: booleanFromEnv.default(false),
   FEATURE_BILLING_STRIPE_ENABLED: booleanFromEnv.default(false)
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
+
+const requiredRailwayBucketKeys = [
+  "RAILWAY_USER_WARDROBE_MEDIA_BUCKET_NAME",
+  "RAILWAY_LOOK_MEDIA_BUCKET_NAME",
+  "RAILWAY_REFERENCE_STYLE_LIBRARY_BUCKET_NAME",
+  "RAILWAY_MODEL_PROCESSING_BUCKET_NAME"
+] as const satisfies readonly (keyof AppEnv)[];
 
 export function parseEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
   try {
@@ -70,7 +88,8 @@ export function parseEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
 
     if (env.APP_ENV === "production") {
       const missing: string[] = [];
-      if (!env.DATABASE_URL) missing.push("DATABASE_URL");
+      if (!env.SUPABASE_URL) missing.push("SUPABASE_URL");
+      if (!env.SUPABASE_API_KEY) missing.push("SUPABASE_API_KEY");
       if (!env.POSTHOG_DISABLED && !env.POSTHOG_API_KEY) missing.push("POSTHOG_API_KEY");
       if (missing.length > 0) {
         throw new ApiError("config_invalid", "Production configuration is incomplete", { missing });
@@ -108,18 +127,20 @@ type ProviderConfig = {
 };
 
 export function getProviderReadiness(env: AppEnv): ProviderReadiness[] {
+  const missingRequiredRailwayBuckets = requiredRailwayBucketKeys.filter((key) => !env[key]);
+
   const providers: ProviderConfig[] = [
     {
-      provider: "postgres",
-      configured: Boolean(env.DATABASE_URL),
-      localMessage: "DATABASE_URL is not set; database-backed routes should use local/test fallbacks.",
-      missingMessage: "DATABASE_URL is required for database-backed routes."
+      provider: "supabase",
+      configured: Boolean(env.SUPABASE_URL && env.SUPABASE_API_KEY),
+      localMessage: "Supabase is not configured; auth/database-backed routes should use local/test fallbacks.",
+      missingMessage: "SUPABASE_URL and SUPABASE_API_KEY are required for Supabase-backed routes."
     },
     {
-      provider: "gcs",
-      configured: Boolean(env.GCS_BUCKET_NAME),
-      localMessage: "GCS bucket is not configured.",
-      missingMessage: "GCS_BUCKET_NAME is required for remote uploads."
+      provider: "railway",
+      configured: missingRequiredRailwayBuckets.length === 0,
+      localMessage: "Railway media buckets are not configured.",
+      missingMessage: `Required Railway media buckets are missing: ${missingRequiredRailwayBuckets.join(", ")}.`
     },
     {
       provider: "qdrant",
@@ -128,10 +149,10 @@ export function getProviderReadiness(env: AppEnv): ProviderReadiness[] {
       missingMessage: "QDRANT_URL and QDRANT_API_KEY are required for remote sparse search."
     },
     {
-      provider: "vertex",
-      configured: Boolean(env.VERTEX_PROJECT_ID && env.VERTEX_LOCATION),
-      localMessage: "Vertex AI is not configured.",
-      missingMessage: "VERTEX_PROJECT_ID and VERTEX_LOCATION are required for Vertex calls."
+      provider: "openrouter",
+      configured: Boolean(env.OPENROUTER_API_KEY && env.OPENROUTER_BASE_URL),
+      localMessage: "OpenRouter is not configured.",
+      missingMessage: "OPENROUTER_API_KEY is required for OpenRouter calls."
     },
     {
       provider: "posthog",

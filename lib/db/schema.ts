@@ -20,8 +20,11 @@ const timestamps = {
 
 export const providerNameEnum = pgEnum("provider_name", [
   "postgres",
+  "supabase",
+  "railway",
   "gcs",
   "qdrant",
+  "openrouter",
   "vertex",
   "posthog",
   "stripe",

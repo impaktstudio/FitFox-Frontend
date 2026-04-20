@@ -1,6 +1,6 @@
 # FitFox MVP Backend Tickets
 
-These tickets translate the MVP backend plan into Sprint 1 epics for a Next.js thin API backed by Postgres, GCS, Qdrant Cloud, Vertex AI, Mastra, PostHog, and Stripe.
+These tickets translate the MVP backend plan into Sprint 1 epics for a Next.js thin API backed by Postgres, GCS, Qdrant Cloud, OpenRouter, Mastra, PostHog, and Stripe.
 
 The GPU worker is a separate execution space for high-intensity, low-duration jobs such as Qwen Image 2512 image generation, SAM segmentation, and SPLADE++ processing. GPU-specific implementation tickets live in `gpu-tickets/`.
 
@@ -9,7 +9,7 @@ The GPU worker is a separate execution space for high-intensity, low-duration jo
 - Keep the Next.js backend thin: route validation, auth/test identity, orchestration calls, persistence, feature flags, and provider adapters.
 - Use Qdrant Cloud inference as the default sparse embedding/search path for Sprint 1.
 - Add an interface for the GPU backend, but do not require GPU worker implementation for app-side Sprint 1 completion.
-- Use local/test feature flags to run without Supabase auth, Vertex, Qdrant, Stripe, or GPU worker in local development.
+- Use local/test feature flags to run without Supabase auth, OpenRouter, Qdrant, Stripe, or GPU worker in local development.
 - Do not implement broad social commerce, full closet digitization, try-on, or dense/hybrid reranking in Sprint 1.
 
 ## Epic 1: Next.js API Foundation
@@ -28,7 +28,7 @@ Create the backend route structure in `app/api/**/route.ts` with shared response
 
 **Technical Acceptance Criteria**
 - `/api/health` returns `200` with service name, version, and environment.
-- `/api/ready` returns provider readiness for Postgres, GCS config, Qdrant config, Vertex config, PostHog config, Stripe config, and GPU backend config.
+- `/api/ready` returns provider readiness for Postgres, GCS config, Qdrant config, OpenRouter config, PostHog config, Stripe config, and GPU backend config.
 - Route handlers use a consistent success/error response shape.
 - Zod validation utilities exist for request bodies, query params, and route params.
 
@@ -110,7 +110,7 @@ Create the core Postgres schema and Drizzle migration setup for product data, pr
 - Tables use UUID primary keys where applicable.
 - User-owned tables include `user_id` and indexes on `user_id`.
 - Recommendation lookup tables include indexes on `session_id`, `look_id`, and `wardrobe_item_id` where relevant.
-- `provider_runs` can audit Vertex, Qdrant, GPU backend, Stripe, PostHog, and GCS operations.
+- `provider_runs` can audit OpenRouter, Qdrant, GPU backend, Stripe, PostHog, and GCS operations.
 - Migrations are idempotent in local dev.
 
 **Smoke Tests**
@@ -140,7 +140,7 @@ Implement a server-side feature flag service that reads PostHog flags when confi
   - `backend-use-local-processing`
   - `backend-use-gpu-worker`
   - `backend-use-qdrant-sparse`
-  - `backend-use-vertex-ai`
+  - `backend-use-openrouter`
   - `backend-use-mastra-workflow`
   - `billing-stripe-enabled`
 - PostHog failures fall back to env defaults.
@@ -245,10 +245,10 @@ Persist lightweight wardrobe item records from GCS object paths and optional tex
 **Dependencies**
 - BE-06.
 
-### BE-08: Vertex Item Understanding Adapter
+### BE-08: OpenRouter Item Understanding Adapter
 
 **Description**  
-Add a Vertex AI adapter for image/text item understanding. In local/test mode, return generic structured values without calling Vertex.
+Add an OpenRouter adapter for image/text item understanding. In local/test mode, return generic structured values without calling OpenRouter.
 
 **Required API Endpoints**
 - Used by `POST /api/wardrobe-items`.
@@ -258,17 +258,17 @@ Add a Vertex AI adapter for image/text item understanding. In local/test mode, r
 - `provider_runs`
 
 **Technical Acceptance Criteria**
-- Remote mode calls Vertex AI with the item image and/or description.
+- Remote mode calls OpenRouter with the item image and/or description.
 - Local/test mode returns generic structured values that satisfy downstream contracts.
 - Structured output includes category, subcategory, colors, materials, silhouette tags, formality tags, archetype tags, occasion tags, climate tags, and description text.
 - Provider success/failure is captured in `provider_runs`.
 
 **Smoke Tests**
 - Local/test item create stores generic structured fields.
-- Mocked Vertex response updates item from `pending` to `processed`.
+- Mocked OpenRouter response updates item from `pending` to `processed`.
 
 **Unit Tests**
-- Malformed Vertex output marks item as `failed`.
+- Malformed OpenRouter output marks item as `failed`.
 - Generic fallback does not invent unsupported business claims.
 
 **Dependencies**
@@ -439,7 +439,7 @@ Parse user occasion input into structured context for recommendation generation.
 - Accepts raw occasion text, desired impression, climate state, city, constraints, and selected item IDs.
 - Produces occasion mode, desired impression, climate state, constraints, and city.
 - Local/test mode returns generic structured values.
-- Vertex calls are audited in `provider_runs`.
+- OpenRouter calls are audited in `provider_runs`.
 
 **Smoke Tests**
 - Birthday dinner input creates a structured occasion session.

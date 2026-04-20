@@ -2,7 +2,7 @@ export const featureFlagKeys = [
   "backend-use-local-processing",
   "backend-use-gpu-worker",
   "backend-use-qdrant-sparse",
-  "backend-use-vertex-ai",
+  "backend-use-openrouter",
   "backend-use-mastra-workflow",
   "billing-stripe-enabled"
 ] as const;

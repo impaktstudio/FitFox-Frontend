@@ -11,6 +11,23 @@ const baseEnv = {
   TEST_AUTH_USER_ID: "00000000-0000-4000-8000-000000000001"
 } as const;
 
+const railwayBuckets = {
+  RAILWAY_USER_WARDROBE_MEDIA_BUCKET_NAME: "fitfox-prod-user-wardrobe-media",
+  RAILWAY_LOOK_MEDIA_BUCKET_NAME: "fitfox-prod-look-media",
+  RAILWAY_REFERENCE_STYLE_LIBRARY_BUCKET_NAME: "fitfox-prod-reference-style-library",
+  RAILWAY_MODEL_PROCESSING_BUCKET_NAME: "fitfox-prod-model-processing",
+  RAILWAY_EXPORTS_BUCKET_NAME: "fitfox-prod-exports"
+} as const;
+
+const supabaseEnv = {
+  SUPABASE_URL: "https://ajoqiyfcjygraohujnnx.supabase.co",
+  SUPABASE_API_KEY: "test-supabase-api-key"
+} as const;
+
+const openRouterEnv = {
+  OPENROUTER_API_KEY: "test-openrouter-api-key"
+} as const;
+
 afterEach(() => {
   vi.unstubAllEnvs();
 });
@@ -24,8 +41,90 @@ describe("env parsing", () => {
     const env = parseEnv(baseEnv);
     const readiness = getProviderReadiness(env);
 
+    expect(readiness.find((item) => item.provider === "supabase")?.status).toBe("disabled");
+    expect(readiness.find((item) => item.provider === "railway")?.status).toBe("disabled");
     expect(readiness.find((item) => item.provider === "qdrant")?.status).toBe("disabled");
+    expect(readiness.find((item) => item.provider === "openrouter")?.status).toBe("disabled");
     expect(readiness.find((item) => item.provider === "stripe")?.status).toBe("disabled");
+  });
+
+  it("marks Supabase configured when URL and API key are present", () => {
+    const env = parseEnv({
+      ...baseEnv,
+      ...supabaseEnv
+    });
+
+    expect(getProviderReadiness(env).find((item) => item.provider === "supabase")?.status).toBe("configured");
+  });
+
+  it("requires Supabase config in production", () => {
+    expect(() =>
+      parseEnv({
+        ...baseEnv,
+        NODE_ENV: "production",
+        APP_ENV: "production"
+      })
+    ).toThrow(ApiError);
+  });
+
+  it("marks OpenRouter configured when an API key is present", () => {
+    const env = parseEnv({
+      ...baseEnv,
+      ...openRouterEnv
+    });
+
+    expect(env.OPENROUTER_BASE_URL).toBe("https://openrouter.ai/api/v1");
+    expect(getProviderReadiness(env).find((item) => item.provider === "openrouter")?.status).toBe("configured");
+  });
+
+  it("treats empty Railway bucket strings as missing", () => {
+    const env = parseEnv({
+      ...baseEnv,
+      RAILWAY_USER_WARDROBE_MEDIA_BUCKET_NAME: "",
+      RAILWAY_LOOK_MEDIA_BUCKET_NAME: "",
+      RAILWAY_REFERENCE_STYLE_LIBRARY_BUCKET_NAME: "",
+      RAILWAY_MODEL_PROCESSING_BUCKET_NAME: "",
+      RAILWAY_EXPORTS_BUCKET_NAME: ""
+    });
+
+    expect(env.RAILWAY_USER_WARDROBE_MEDIA_BUCKET_NAME).toBeUndefined();
+    expect(getProviderReadiness(env).find((item) => item.provider === "railway")?.status).toBe("disabled");
+  });
+
+  it("marks Railway configured when required media buckets are present", () => {
+    const env = parseEnv({
+      ...baseEnv,
+      ...railwayBuckets
+    });
+
+    expect(getProviderReadiness(env).find((item) => item.provider === "railway")?.status).toBe("configured");
+  });
+
+  it("marks Railway failed outside local/test when a required media bucket is missing", () => {
+    const env = parseEnv({
+      ...baseEnv,
+      NODE_ENV: "production",
+      APP_ENV: "preview",
+      ...railwayBuckets,
+      RAILWAY_LOOK_MEDIA_BUCKET_NAME: ""
+    });
+    const railwayReadiness = getProviderReadiness(env).find((item) => item.provider === "railway");
+
+    expect(railwayReadiness?.status).toBe("failed");
+    expect(railwayReadiness?.message).toContain("RAILWAY_LOOK_MEDIA_BUCKET_NAME");
+  });
+
+  it("keeps Railway configured when only the optional exports bucket is missing", () => {
+    const env = parseEnv({
+      ...baseEnv,
+      NODE_ENV: "production",
+      APP_ENV: "preview",
+      ...railwayBuckets,
+      RAILWAY_EXPORTS_BUCKET_NAME: ""
+    });
+
+    expect(env.RAILWAY_EXPORTS_BUCKET_NAME).toBeUndefined();
+    expect(getProviderReadiness(env).find((item) => item.provider === "railway")?.status).toBe("configured");
   });
 });
 

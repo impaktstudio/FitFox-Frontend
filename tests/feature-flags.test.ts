@@ -10,7 +10,7 @@ const env = parseEnv({
   POSTHOG_DISABLED: "false",
   POSTHOG_API_KEY: "ph_test",
   FEATURE_BACKEND_USE_LOCAL_PROCESSING: "true",
-  FEATURE_BACKEND_USE_VERTEX_AI: "false"
+  FEATURE_BACKEND_USE_OPENROUTER: "false"
 });
 
 describe("feature flags", () => {
@@ -18,12 +18,12 @@ describe("feature flags", () => {
     const evaluated = await evaluateFeatureFlags("user_1", {
       env,
       posthog: {
-        getFeatureFlag: async (key) => key === "backend-use-vertex-ai"
+        getFeatureFlag: async (key) => key === "backend-use-openrouter"
       }
     });
 
     expect(evaluated.source).toBe("posthog");
-    expect(evaluated.flags["backend-use-vertex-ai"]).toBe(true);
+    expect(evaluated.flags["backend-use-openrouter"]).toBe(true);
     expect(evaluated.flags["backend-use-local-processing"]).toBe(false);
   });
 
@@ -39,7 +39,7 @@ describe("feature flags", () => {
 
     expect(evaluated.source).toBe("env_fallback");
     expect(evaluated.flags["backend-use-local-processing"]).toBe(true);
-    expect(evaluated.flags["backend-use-vertex-ai"]).toBe(false);
+    expect(evaluated.flags["backend-use-openrouter"]).toBe(false);
     expect(evaluated.fallbackReason).toContain("network down");
   });
 });

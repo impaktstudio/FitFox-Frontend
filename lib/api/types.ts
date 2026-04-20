@@ -33,8 +33,11 @@ export type ReadinessStatus = "configured" | "disabled" | "failed";
 
 export type ProviderName =
   | "postgres"
+  | "supabase"
+  | "railway"
   | "gcs"
   | "qdrant"
+  | "openrouter"
   | "vertex"
   | "posthog"
   | "stripe"

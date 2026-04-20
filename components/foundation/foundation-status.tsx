@@ -1,3 +1,6 @@
+"use client";
+
+import posthog from "posthog-js";
 import { Activity, Database, Flag, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,10 +48,10 @@ export function FoundationStatus() {
         </div>
         <div className="flex flex-wrap gap-3">
           <Button asChild>
-            <a href="/api/health">Health</a>
+            <a href="/api/health" onClick={() => posthog.capture("health_link_clicked", { link: "health" })}>Health</a>
           </Button>
           <Button variant="outline" asChild>
-            <a href="/api/ready">Ready</a>
+            <a href="/api/ready" onClick={() => posthog.capture("health_link_clicked", { link: "ready" })}>Ready</a>
           </Button>
         </div>
       </section>

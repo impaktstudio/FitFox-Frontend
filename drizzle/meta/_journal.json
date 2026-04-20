@@ -8,6 +8,27 @@
       "when": 1766188800000,
       "tag": "0000_epic_1_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776661200000,
+      "tag": "0001_add_supabase_provider",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776664800000,
+      "tag": "0002_add_railway_provider",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776668400000,
+      "tag": "0003_add_openrouter_provider",
+      "breakpoints": true
     }
   ]
 }

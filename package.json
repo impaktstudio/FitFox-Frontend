@@ -24,15 +24,16 @@
     "chromatic:dry-run": "node scripts/chromatic-dry-run.mjs"
   },
   "dependencies": {
-    "@sentry/nextjs": "^10.29.0",
     "@radix-ui/react-slot": "^1.2.4",
+    "@sentry/nextjs": "^10.29.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.1",
     "lucide-react": "^0.561.0",
     "next": "^16.1.0",
-    "posthog-node": "^5.14.0",
     "postgres": "^3.4.7",
+    "posthog-js": "^1.369.3",
+    "posthog-node": "^5.14.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "tailwind-merge": "^3.4.0",

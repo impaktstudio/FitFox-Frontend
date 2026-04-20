@@ -14,7 +14,9 @@ export type AnalyticsEventName =
   | "purchase_advice_requested"
   | "upgrade_started"
   | "upgrade_completed"
-  | "epic1_foundation_event";
+  | "epic1_foundation_event"
+  | "feature_flags_evaluated"
+  | "auth_smoke_tested";
 
 export async function captureAnalyticsEvent(
   event: AnalyticsEventName,
