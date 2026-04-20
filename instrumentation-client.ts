@@ -1,4 +1,16 @@
+import * as Sentry from "@sentry/nextjs";
 import posthog from "posthog-js";
+
+const sentryDsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
+
+Sentry.init({
+  dsn: sentryDsn,
+  enabled: Boolean(sentryDsn),
+  environment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT,
+  tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? 0)
+});
+
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
 
 posthog.init(process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN!, {
   api_host: "/ingest",

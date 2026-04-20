@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { apiFailure, apiSuccess } from "@/lib/api/responses";
 import { toApiError } from "@/lib/api/errors";
+import { captureRouteException } from "@/lib/observability/sentry";
 
 export type RouteContext<TParams = Record<string, string | string[] | undefined>> = {
   params?: TParams | Promise<TParams>;
@@ -26,7 +27,20 @@ export function routeHandler<TData, TParams = Record<string, string | string[] |
       const data = await handler(request, { requestId, params });
       return apiSuccess(data, requestId);
     } catch (error) {
-      return apiFailure(toApiError(error), requestId);
+      const apiError = toApiError(error);
+
+      if (apiError.status >= 500) {
+        const url = new URL(request.url);
+        captureRouteException(error, {
+          requestId,
+          method: request.method,
+          path: url.pathname,
+          status: apiError.status,
+          code: apiError.code
+        });
+      }
+
+      return apiFailure(apiError, requestId);
     }
   };
 }

@@ -60,8 +60,16 @@ const envSchema = z.object({
   POSTHOG_API_KEY: z.string().optional(),
   POSTHOG_HOST: optionalUrl.default("https://us.i.posthog.com"),
   POSTHOG_DISABLED: booleanFromEnv.default(false),
+  SENTRY_DSN: optionalUrl,
+  NEXT_PUBLIC_SENTRY_DSN: optionalUrl,
+  SENTRY_ENVIRONMENT: optionalEnvString,
+  NEXT_PUBLIC_SENTRY_ENVIRONMENT: optionalEnvString,
+  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).optional().default(0),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  INNGEST_EVENT_KEY: optionalEnvString,
+  INNGEST_SIGNING_KEY: optionalEnvString,
+  INNGEST_DEV: booleanFromEnv.default(false),
   GPU_BACKEND_BASE_URL: optionalUrl,
   GPU_BACKEND_AUTH_TOKEN: z.string().optional(),
   MASTRA_ENABLED: booleanFromEnv.default(false),
@@ -90,6 +98,7 @@ export function parseEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
       const missing: string[] = [];
       if (!env.SUPABASE_URL) missing.push("SUPABASE_URL");
       if (!env.SUPABASE_API_KEY) missing.push("SUPABASE_API_KEY");
+      if (env.FEATURE_BACKEND_USE_GPU_WORKER && !env.INNGEST_EVENT_KEY) missing.push("INNGEST_EVENT_KEY");
       if (!env.POSTHOG_DISABLED && !env.POSTHOG_API_KEY) missing.push("POSTHOG_API_KEY");
       if (missing.length > 0) {
         throw new ApiError("config_invalid", "Production configuration is incomplete", { missing });
@@ -162,10 +171,22 @@ export function getProviderReadiness(env: AppEnv): ProviderReadiness[] {
       missingMessage: "POSTHOG_API_KEY is required when PostHog is enabled."
     },
     {
+      provider: "sentry",
+      configured: Boolean(env.SENTRY_DSN || env.NEXT_PUBLIC_SENTRY_DSN),
+      localMessage: "Sentry is not configured.",
+      missingMessage: "SENTRY_DSN or NEXT_PUBLIC_SENTRY_DSN is required for error logging."
+    },
+    {
       provider: "stripe",
       configured: Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET),
       localMessage: "Stripe is not configured.",
       missingMessage: "Stripe keys are required for remote billing flows."
+    },
+    {
+      provider: "inngest",
+      configured: Boolean(env.INNGEST_EVENT_KEY || env.INNGEST_DEV),
+      localMessage: "Inngest is not configured; GPU task dispatch should use local/test fallbacks.",
+      missingMessage: "INNGEST_EVENT_KEY is required to enqueue GPU worker tasks."
     },
     {
       provider: "gpu_backend",

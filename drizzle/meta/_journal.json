@@ -29,6 +29,20 @@
       "when": 1776668400000,
       "tag": "0003_add_openrouter_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776672000000,
+      "tag": "0004_add_inngest_provider",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1776675600000,
+      "tag": "0005_add_sentry_provider",
+      "breakpoints": true
     }
   ]
 }

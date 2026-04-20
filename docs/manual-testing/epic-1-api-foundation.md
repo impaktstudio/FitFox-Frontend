@@ -58,7 +58,7 @@ curl -s http://localhost:3000/api/ready | jq
 Expected:
 
 - HTTP `200`
-- local missing providers such as Railway, Qdrant, OpenRouter, Stripe, GPU backend, and Mastra are `disabled`, not `failed`
+- local missing providers such as Railway, Qdrant, OpenRouter, Sentry, Inngest, Stripe, GPU backend, and Mastra are `disabled`, not `failed`
 - configured providers report `configured`
 
 ## 4. Test auth mode

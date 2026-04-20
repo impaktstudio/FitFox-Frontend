@@ -27,7 +27,9 @@ export const providerNameEnum = pgEnum("provider_name", [
   "openrouter",
   "vertex",
   "posthog",
+  "sentry",
   "stripe",
+  "inngest",
   "gpu_backend",
   "mastra"
 ]);

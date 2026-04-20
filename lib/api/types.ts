@@ -40,7 +40,9 @@ export type ProviderName =
   | "openrouter"
   | "vertex"
   | "posthog"
+  | "sentry"
   | "stripe"
+  | "inngest"
   | "gpu_backend"
   | "mastra";
 

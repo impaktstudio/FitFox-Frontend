@@ -45,6 +45,8 @@ describe("env parsing", () => {
     expect(readiness.find((item) => item.provider === "railway")?.status).toBe("disabled");
     expect(readiness.find((item) => item.provider === "qdrant")?.status).toBe("disabled");
     expect(readiness.find((item) => item.provider === "openrouter")?.status).toBe("disabled");
+    expect(readiness.find((item) => item.provider === "inngest")?.status).toBe("disabled");
+    expect(readiness.find((item) => item.provider === "sentry")?.status).toBe("disabled");
     expect(readiness.find((item) => item.provider === "stripe")?.status).toBe("disabled");
   });
 
@@ -75,6 +77,37 @@ describe("env parsing", () => {
 
     expect(env.OPENROUTER_BASE_URL).toBe("https://openrouter.ai/api/v1");
     expect(getProviderReadiness(env).find((item) => item.provider === "openrouter")?.status).toBe("configured");
+  });
+
+  it("marks Inngest configured when an event key is present", () => {
+    const env = parseEnv({
+      ...baseEnv,
+      INNGEST_EVENT_KEY: "test-inngest-event-key"
+    });
+
+    expect(getProviderReadiness(env).find((item) => item.provider === "inngest")?.status).toBe("configured");
+  });
+
+  it("marks Sentry configured when a DSN is present", () => {
+    const env = parseEnv({
+      ...baseEnv,
+      SENTRY_DSN: "https://public@example.com/1"
+    });
+
+    expect(getProviderReadiness(env).find((item) => item.provider === "sentry")?.status).toBe("configured");
+  });
+
+  it("requires Inngest in production when GPU worker dispatch is enabled", () => {
+    expect(() =>
+      parseEnv({
+        ...baseEnv,
+        ...supabaseEnv,
+        NODE_ENV: "production",
+        APP_ENV: "production",
+        POSTHOG_DISABLED: "true",
+        FEATURE_BACKEND_USE_GPU_WORKER: "true"
+      })
+    ).toThrow(ApiError);
   });
 
   it("treats empty Railway bucket strings as missing", () => {
