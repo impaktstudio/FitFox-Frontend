@@ -39,6 +39,8 @@ const envSchema = z.object({
   APP_ENV: z.enum(["local", "test", "preview", "production"]).default("local"),
   NEXT_PUBLIC_APP_NAME: z.string().min(1).default("FitFox"),
   NEXT_PUBLIC_APP_VERSION: z.string().min(1).default("0.1.0"),
+  NEXT_PUBLIC_SUPABASE_URL: optionalEnvString,
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: optionalEnvString,
   AUTH_MODE: z.enum(["test", "supabase"]).default("test"),
   TEST_AUTH_USER_ID: z
     .string()
@@ -48,6 +50,7 @@ const envSchema = z.object({
   DATABASE_URL: optionalUrl,
   SUPABASE_URL: optionalUrl,
   SUPABASE_API_KEY: optionalEnvString,
+  SUPABASE_SERVICE_ROLE_KEY: optionalEnvString,
   RAILWAY_USER_WARDROBE_MEDIA_BUCKET_NAME: optionalEnvString,
   RAILWAY_LOOK_MEDIA_BUCKET_NAME: optionalEnvString,
   RAILWAY_REFERENCE_STYLE_LIBRARY_BUCKET_NAME: optionalEnvString,
@@ -72,6 +75,7 @@ const envSchema = z.object({
   INNGEST_EVENT_KEY: optionalEnvString,
   INNGEST_SIGNING_KEY: optionalEnvString,
   INNGEST_DEV: booleanFromEnv.default(false),
+  GPU_WORKER_CALLBACK_SECRET: optionalEnvString,
   GPU_BACKEND_BASE_URL: optionalUrl,
   GPU_BACKEND_AUTH_TOKEN: z.string().optional(),
   MASTRA_ENABLED: booleanFromEnv.default(false)
@@ -93,7 +97,9 @@ export function parseEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     if (env.APP_ENV === "production") {
       const missing: string[] = [];
       if (!env.SUPABASE_URL) missing.push("SUPABASE_URL");
-      if (!env.SUPABASE_API_KEY) missing.push("SUPABASE_API_KEY");
+      if (!env.SUPABASE_API_KEY && !env.SUPABASE_SERVICE_ROLE_KEY) {
+        missing.push("SUPABASE_API_KEY or SUPABASE_SERVICE_ROLE_KEY");
+      }
       if (!env.POSTHOG_DISABLED && !env.POSTHOG_API_KEY) missing.push("POSTHOG_API_KEY");
       if (!env.RESEND_API_KEY) missing.push("RESEND_API_KEY");
       if (!env.RESEND_FROM_EMAIL) missing.push("RESEND_FROM_EMAIL");
@@ -138,9 +144,9 @@ export function getProviderReadiness(env: AppEnv): ProviderReadiness[] {
   const providers: ProviderConfig[] = [
     {
       provider: "supabase",
-      configured: Boolean(env.SUPABASE_URL && env.SUPABASE_API_KEY),
+      configured: Boolean(env.SUPABASE_URL && (env.SUPABASE_API_KEY || env.SUPABASE_SERVICE_ROLE_KEY)),
       localMessage: "Supabase is not configured; auth/database-backed routes should use local/test fallbacks.",
-      missingMessage: "SUPABASE_URL and SUPABASE_API_KEY are required for Supabase-backed routes."
+      missingMessage: "SUPABASE_URL and a Supabase API key are required for Supabase-backed routes."
     },
     {
       provider: "railway",
@@ -199,10 +205,10 @@ export function getProviderReadiness(env: AppEnv): ProviderReadiness[] {
     },
     {
       provider: "mastra",
-      configured: Boolean(env.MASTRA_ENABLED && env.DATABASE_URL),
+      configured: Boolean(env.MASTRA_ENABLED && env.SUPABASE_URL && env.SUPABASE_API_KEY),
       enabled: env.MASTRA_ENABLED,
-      localMessage: "Mastra is disabled or missing database config.",
-      missingMessage: "Mastra requires MASTRA_ENABLED=true and DATABASE_URL."
+      localMessage: "Mastra is disabled or missing Supabase config.",
+      missingMessage: "Mastra requires MASTRA_ENABLED=true, SUPABASE_URL, and SUPABASE_API_KEY."
     }
   ];
 

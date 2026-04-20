@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { profiles, stripeCustomers, stripeSubscriptions, wardrobeItems } from "@/lib/db/schema";
+import {
+  gpuTasks,
+  profiles,
+  stripeCustomers,
+  stripeSubscriptions,
+  usagePeriods,
+  usageReservations,
+  wardrobeItems
+} from "@/lib/db/schema";
 import { redactPayload } from "@/lib/observability/redaction";
 
 describe("observability", () => {
@@ -48,6 +56,15 @@ describe("database contracts", () => {
     expect(stripeSubscriptions.currentPeriodStart.name).toBe("current_period_start");
     expect(stripeSubscriptions.cancelAtPeriodEnd.name).toBe("cancel_at_period_end");
     expect(stripeSubscriptions.trialEnd.name).toBe("trial_end");
+  });
+
+  it("keeps usage cap accounting fields available", () => {
+    expect(gpuTasks.taskId.name).toBe("task_id");
+    expect(gpuTasks.status.enumValues).toContain("queued");
+    expect(usagePeriods.bucket.enumValues).toEqual(["embeddings", "llm", "gpu_worker_time"]);
+    expect(usagePeriods.capUsd.name).toBe("cap_usd");
+    expect(usageReservations.periodStart.name).toBe("period_start");
+    expect(usageReservations.status.enumValues).toContain("released");
   });
 
   it("rejects unsupported enum-like values at the validation layer", () => {

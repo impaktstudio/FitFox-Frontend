@@ -1,17 +1,65 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { ApiError } from "@/lib/api/errors";
+import { authCookieNames, readCookie } from "@/lib/auth/cookies";
 import type { AuthContext } from "@/lib/auth/types";
 import { getEnv, isLocalLike } from "@/lib/config/env";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseAuthRequestClient } from "@/lib/supabase/server";
 
 const testHeaderName = "x-fitfox-test-user-id";
 const uuid = z.uuid();
 
-export function resolveAuthContext(request: NextRequest | Request): AuthContext {
+function bearerToken(request: NextRequest | Request): string | null {
+  const authorization = request.headers.get("authorization");
+  if (authorization?.toLowerCase().startsWith("bearer ")) {
+    return authorization.slice("bearer ".length).trim();
+  }
+
+  return readCookie(request.headers.get("cookie"), authCookieNames.accessToken);
+}
+
+async function resolveSupabaseAuthContext(request: NextRequest | Request): Promise<AuthContext> {
+  const token = bearerToken(request);
+
+  if (token) {
+    const supabase = getSupabaseAdminClient();
+    const { data, error } = await supabase.auth.getUser(token);
+
+    if (error || !data.user) {
+      throw new ApiError("auth_required", "Supabase auth token is invalid or expired.");
+    }
+
+    return {
+      userId: data.user.id,
+      mode: "supabase",
+      source: "supabase"
+    };
+  }
+
+  if (!request.headers.get("cookie")) {
+    throw new ApiError("auth_required", "Supabase auth token is required.");
+  }
+
+  const supabase = createSupabaseAuthRequestClient(request);
+  const { data, error } = await supabase.auth.getUser();
+
+  if (error || !data.user) {
+    throw new ApiError("auth_required", "Supabase auth token is required.");
+  }
+
+  return {
+    userId: data.user.id,
+    mode: "supabase",
+    source: "supabase"
+  };
+}
+
+export async function resolveAuthContext(request: NextRequest | Request): Promise<AuthContext> {
   const env = getEnv();
 
   if (env.AUTH_MODE === "supabase") {
-    throw new ApiError("auth_not_implemented", "Supabase auth middleware is not implemented yet");
+    return resolveSupabaseAuthContext(request);
   }
 
   const headerUserId = request.headers.get(testHeaderName);

@@ -50,6 +50,20 @@
       "when": 1776679200000,
       "tag": "0006_add_stripe_user_billing_data",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1776682800000,
+      "tag": "0007_add_usage_caps",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776686069153,
+      "tag": "0008_woozy_night_nurse",
+      "breakpoints": true
     }
   ]
 }

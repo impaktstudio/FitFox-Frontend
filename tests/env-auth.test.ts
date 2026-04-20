@@ -108,6 +108,39 @@ describe("env parsing", () => {
     expect(getProviderReadiness(env).find((item) => item.provider === "resend")?.status).toBe("configured");
   });
 
+  it("marks Supabase configured with a service role key", () => {
+    const env = parseEnv({
+      ...baseEnv,
+      SUPABASE_URL: supabaseEnv.SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key"
+    });
+
+    expect(getProviderReadiness(env).find((item) => item.provider === "supabase")?.status).toBe("configured");
+  });
+
+  it("marks Mastra configured when enabled with Supabase config", () => {
+    const env = parseEnv({
+      ...baseEnv,
+      ...supabaseEnv,
+      MASTRA_ENABLED: "true"
+    });
+
+    expect(getProviderReadiness(env).find((item) => item.provider === "mastra")?.status).toBe("configured");
+  });
+
+  it("marks Mastra failed outside local/test when enabled without Supabase config", () => {
+    const env = parseEnv({
+      ...baseEnv,
+      NODE_ENV: "production",
+      APP_ENV: "preview",
+      MASTRA_ENABLED: "true"
+    });
+    const mastraReadiness = getProviderReadiness(env).find((item) => item.provider === "mastra");
+
+    expect(mastraReadiness?.status).toBe("failed");
+    expect(mastraReadiness?.message).toContain("SUPABASE_URL");
+  });
+
   it("treats empty Railway bucket strings as missing", () => {
     const env = parseEnv({
       ...baseEnv,
@@ -160,7 +193,7 @@ describe("env parsing", () => {
 });
 
 describe("test auth", () => {
-  it("resolves TEST_AUTH_USER_ID in test mode", () => {
+  it("resolves TEST_AUTH_USER_ID in test mode", async () => {
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("APP_ENV", "test");
     vi.stubEnv("AUTH_MODE", "test");
@@ -168,14 +201,14 @@ describe("test auth", () => {
 
     const request = new NextRequest("https://fitfox.test/api/auth/smoke");
 
-    expect(resolveAuthContext(request)).toEqual({
+    await expect(resolveAuthContext(request)).resolves.toEqual({
       userId: baseEnv.TEST_AUTH_USER_ID,
       mode: "test",
       source: "test_env"
     });
   });
 
-  it("requires TEST_AUTH_USER_ID when no allowed header is present", () => {
+  it("requires TEST_AUTH_USER_ID when no allowed header is present", async () => {
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("APP_ENV", "test");
     vi.stubEnv("AUTH_MODE", "test");
@@ -183,10 +216,10 @@ describe("test auth", () => {
 
     const request = new NextRequest("https://fitfox.test/api/auth/smoke");
 
-    expect(() => resolveAuthContext(request)).toThrow(ApiError);
+    await expect(resolveAuthContext(request)).rejects.toThrow(ApiError);
   });
 
-  it("allows test header override only in local/test environments", () => {
+  it("allows test header override only in local/test environments", async () => {
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("APP_ENV", "test");
     vi.stubEnv("AUTH_MODE", "test");
@@ -198,24 +231,21 @@ describe("test auth", () => {
       }
     });
 
-    expect(resolveAuthContext(request).userId).toBe("00000000-0000-4000-8000-000000000002");
+    await expect(resolveAuthContext(request)).resolves.toMatchObject({
+      userId: "00000000-0000-4000-8000-000000000002"
+    });
   });
 
-  it("returns a typed not-implemented error for Supabase mode", () => {
+  it("requires a token for Supabase mode", async () => {
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("APP_ENV", "test");
     vi.stubEnv("AUTH_MODE", "supabase");
 
     const request = new NextRequest("https://fitfox.test/api/auth/smoke");
 
-    try {
-      resolveAuthContext(request);
-      throw new Error("Expected auth resolution to fail");
-    } catch (error) {
-      expect(error).toMatchObject({
-        code: "auth_not_implemented",
-        status: 501
-      });
-    }
+    await expect(resolveAuthContext(request)).rejects.toMatchObject({
+      code: "auth_required",
+      status: 401
+    });
   });
 });

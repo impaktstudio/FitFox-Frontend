@@ -6,7 +6,7 @@ import { enqueueGpuWorkerTask, gpuWorkerTaskRequestSchema } from "@/lib/gpu-work
 export const runtime = "nodejs";
 
 export const POST = routeHandler(async (request, { requestId }) => {
-  const auth = resolveAuthContext(request);
+  const auth = await resolveAuthContext(request);
   const body = await parseJsonBody(request, gpuWorkerTaskRequestSchema);
 
   return enqueueGpuWorkerTask({

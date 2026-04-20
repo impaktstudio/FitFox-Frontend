@@ -40,6 +40,16 @@ export const processingStatusEnum = pgEnum("processing_status", ["pending", "pro
 
 export const profilePlanTierEnum = pgEnum("profile_plan_tier", ["free", "pro", "founder"]);
 
+export const usageBucketEnum = pgEnum("usage_bucket", ["embeddings", "llm", "gpu_worker_time"]);
+
+export const gpuTaskStatusEnum = pgEnum("gpu_task_status", ["reserved", "queued", "succeeded", "failed"]);
+
+export const usageReservationStatusEnum = pgEnum("usage_reservation_status", [
+  "reserved",
+  "consumed",
+  "released"
+]);
+
 export const profiles = pgTable(
   "profiles",
   {
@@ -322,6 +332,75 @@ export const stripeEvents = pgTable(
   },
   (table) => ({
     eventUniqueIdx: uniqueIndex("stripe_events_stripe_event_id_unique").on(table.stripeEventId)
+  })
+);
+
+export const gpuTasks = pgTable(
+  "gpu_tasks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    taskId: text("task_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    taskType: text("task_type").notNull(),
+    idempotencyKey: text("idempotency_key"),
+    status: gpuTaskStatusEnum("status").notNull().default("reserved"),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+    workerResultId: text("worker_result_id"),
+    failureDetails: jsonb("failure_details").$type<Record<string, unknown> | null>(),
+    ...timestamps
+  },
+  (table) => ({
+    taskUniqueIdx: uniqueIndex("gpu_tasks_task_id_unique").on(table.taskId),
+    idempotencyUniqueIdx: uniqueIndex("gpu_tasks_user_id_idempotency_key_unique").on(
+      table.userId,
+      table.idempotencyKey
+    ),
+    userIdx: index("gpu_tasks_user_id_idx").on(table.userId),
+    statusIdx: index("gpu_tasks_status_idx").on(table.status),
+    workerResultUniqueIdx: uniqueIndex("gpu_tasks_worker_result_id_unique").on(table.workerResultId)
+  })
+);
+
+export const usagePeriods = pgTable(
+  "usage_periods",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    bucket: usageBucketEnum("bucket").notNull(),
+    periodStart: timestamp("period_start", { withTimezone: true }).notNull(),
+    periodEnd: timestamp("period_end", { withTimezone: true }).notNull(),
+    capUsd: numeric("cap_usd", { precision: 12, scale: 6 }).notNull(),
+    reservedUsd: numeric("reserved_usd", { precision: 12, scale: 6 }).notNull().default("0"),
+    consumedUsd: numeric("consumed_usd", { precision: 12, scale: 6 }).notNull().default("0"),
+    ...timestamps
+  },
+  (table) => ({
+    userIdx: index("usage_periods_user_id_idx").on(table.userId),
+    periodUniqueIdx: uniqueIndex("usage_periods_user_bucket_period_unique").on(
+      table.userId,
+      table.bucket,
+      table.periodStart
+    )
+  })
+);
+
+export const usageReservations = pgTable(
+  "usage_reservations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    taskId: text("task_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    bucket: usageBucketEnum("bucket").notNull(),
+    periodStart: timestamp("period_start", { withTimezone: true }).notNull(),
+    periodEnd: timestamp("period_end", { withTimezone: true }).notNull(),
+    costUsd: numeric("cost_usd", { precision: 12, scale: 6 }).notNull(),
+    status: usageReservationStatusEnum("status").notNull().default("reserved"),
+    ...timestamps
+  },
+  (table) => ({
+    taskIdx: index("usage_reservations_task_id_idx").on(table.taskId),
+    userIdx: index("usage_reservations_user_id_idx").on(table.userId),
+    taskBucketUniqueIdx: uniqueIndex("usage_reservations_task_bucket_unique").on(table.taskId, table.bucket)
   })
 );
 

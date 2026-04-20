@@ -3,6 +3,7 @@ export type ApiErrorCode =
   | "validation_failed"
   | "auth_required"
   | "auth_not_implemented"
+  | "quota_exceeded"
   | "config_invalid"
   | "provider_unavailable"
   | "internal_error";

@@ -5,6 +5,7 @@ const defaultStatusByCode: Record<ApiErrorCode, number> = {
   validation_failed: 400,
   auth_required: 401,
   auth_not_implemented: 501,
+  quota_exceeded: 429,
   config_invalid: 500,
   provider_unavailable: 503,
   internal_error: 500
