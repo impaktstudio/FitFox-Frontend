@@ -16,6 +16,9 @@
     "pretest-components": "npm run build-storybook",
     "test-components": "npx chromatic --project-token=chpt_de3bc5429156de4",
     "test:watch": "vitest",
+    "railway:variables": "railway variables --kv",
+    "railway:buckets": "sh -c 'railway variables --kv \"$@\" | grep \"^RAILWAY_.*_BUCKET_NAME=\"' --",
+    "dev:railway": "railway run npm run dev",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "storybook": "storybook dev -p 6006",
@@ -37,10 +40,12 @@
     "posthog-node": "^5.14.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "resend": "^6.12.0",
     "tailwind-merge": "^3.4.0",
     "zod": "^4.2.1"
   },
   "devDependencies": {
+    "@railway/cli": "^4.40.0",
     "@storybook/addon-docs": "^10.1.7",
     "@storybook/nextjs-vite": "^10.1.7",
     "@tailwindcss/postcss": "^4.1.18",

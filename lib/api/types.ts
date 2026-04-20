@@ -40,6 +40,7 @@ export type ProviderName =
   | "openrouter"
   | "vertex"
   | "posthog"
+  | "resend"
   | "sentry"
   | "stripe"
   | "inngest"

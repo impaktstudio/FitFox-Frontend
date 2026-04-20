@@ -46,6 +46,7 @@ describe("env parsing", () => {
     expect(readiness.find((item) => item.provider === "qdrant")?.status).toBe("disabled");
     expect(readiness.find((item) => item.provider === "openrouter")?.status).toBe("disabled");
     expect(readiness.find((item) => item.provider === "inngest")?.status).toBe("disabled");
+    expect(readiness.find((item) => item.provider === "resend")?.status).toBe("disabled");
     expect(readiness.find((item) => item.provider === "sentry")?.status).toBe("disabled");
     expect(readiness.find((item) => item.provider === "stripe")?.status).toBe("disabled");
   });
@@ -95,6 +96,16 @@ describe("env parsing", () => {
     });
 
     expect(getProviderReadiness(env).find((item) => item.provider === "sentry")?.status).toBe("configured");
+  });
+
+  it("marks Resend configured when API key and sender are present", () => {
+    const env = parseEnv({
+      ...baseEnv,
+      RESEND_API_KEY: "re_test",
+      RESEND_FROM_EMAIL: "FitFox <hello@example.com>"
+    });
+
+    expect(getProviderReadiness(env).find((item) => item.provider === "resend")?.status).toBe("configured");
   });
 
   it("treats empty Railway bucket strings as missing", () => {

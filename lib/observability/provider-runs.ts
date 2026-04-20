@@ -4,10 +4,12 @@ import type { ProviderName } from "@/lib/api/types";
 import type { ProviderRunStatus } from "@/lib/db/schema";
 import { redactPayload } from "@/lib/observability/redaction";
 
+type ProviderRunProviderName = Exclude<ProviderName, "resend">;
+
 export type ProviderRunRecord = {
   userId?: string;
   routeName: string;
-  providerName: ProviderName;
+  providerName: ProviderRunProviderName;
   executionMode: "local" | "remote";
   latencyMs: number;
   status: ProviderRunStatus;

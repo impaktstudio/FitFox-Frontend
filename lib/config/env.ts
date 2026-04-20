@@ -60,6 +60,8 @@ const envSchema = z.object({
   POSTHOG_API_KEY: z.string().optional(),
   POSTHOG_HOST: optionalUrl.default("https://us.i.posthog.com"),
   POSTHOG_DISABLED: booleanFromEnv.default(false),
+  RESEND_API_KEY: optionalEnvString,
+  RESEND_FROM_EMAIL: optionalEnvString,
   SENTRY_DSN: optionalUrl,
   NEXT_PUBLIC_SENTRY_DSN: optionalUrl,
   SENTRY_ENVIRONMENT: optionalEnvString,
@@ -93,6 +95,8 @@ export function parseEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
       if (!env.SUPABASE_URL) missing.push("SUPABASE_URL");
       if (!env.SUPABASE_API_KEY) missing.push("SUPABASE_API_KEY");
       if (!env.POSTHOG_DISABLED && !env.POSTHOG_API_KEY) missing.push("POSTHOG_API_KEY");
+      if (!env.RESEND_API_KEY) missing.push("RESEND_API_KEY");
+      if (!env.RESEND_FROM_EMAIL) missing.push("RESEND_FROM_EMAIL");
       if (missing.length > 0) {
         throw new ApiError("config_invalid", "Production configuration is incomplete", { missing });
       }
@@ -162,6 +166,12 @@ export function getProviderReadiness(env: AppEnv): ProviderReadiness[] {
       enabled: !env.POSTHOG_DISABLED,
       localMessage: "PostHog is disabled or missing a server API key.",
       missingMessage: "POSTHOG_API_KEY is required when PostHog is enabled."
+    },
+    {
+      provider: "resend",
+      configured: Boolean(env.RESEND_API_KEY && env.RESEND_FROM_EMAIL),
+      localMessage: "Resend is not configured; email sending is disabled.",
+      missingMessage: "RESEND_API_KEY and RESEND_FROM_EMAIL are required for transactional email."
     },
     {
       provider: "sentry",
