@@ -97,19 +97,6 @@ describe("env parsing", () => {
     expect(getProviderReadiness(env).find((item) => item.provider === "sentry")?.status).toBe("configured");
   });
 
-  it("requires Inngest in production when GPU worker dispatch is enabled", () => {
-    expect(() =>
-      parseEnv({
-        ...baseEnv,
-        ...supabaseEnv,
-        NODE_ENV: "production",
-        APP_ENV: "production",
-        POSTHOG_DISABLED: "true",
-        FEATURE_BACKEND_USE_GPU_WORKER: "true"
-      })
-    ).toThrow(ApiError);
-  });
-
   it("treats empty Railway bucket strings as missing", () => {
     const env = parseEnv({
       ...baseEnv,

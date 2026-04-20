@@ -104,7 +104,7 @@ Expected:
 
 ## 5. PostHog feature flags
 
-Local/env fallback:
+Local/default fallback:
 
 ```bash
 curl -s http://localhost:3000/api/feature-flags | jq
@@ -113,8 +113,9 @@ curl -s http://localhost:3000/api/feature-flags | jq
 Expected:
 
 - HTTP `200`
-- `data.source: "env_fallback"` when `POSTHOG_DISABLED=true` or no API key is set
+- `data.source: "default_fallback"` when `POSTHOG_DISABLED=true` or no API key is set
 - all six Epic 1 feature flag keys are present
+- fallback values come from code defaults, not `FEATURE_*` environment variables
 
 PostHog-backed check:
 
@@ -138,7 +139,7 @@ Expected:
 
 - HTTP `200`
 - `data.source: "posthog"` when PostHog evaluates successfully
-- PostHog values override local env defaults
+- PostHog is the runtime feature flag source of truth
 
 ## 6. Drizzle migration smoke test
 

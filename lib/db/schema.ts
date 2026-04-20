@@ -49,10 +49,17 @@ export const profiles = pgTable(
     signupSource: text("signup_source"),
     planTier: profilePlanTierEnum("plan_tier").notNull().default("free"),
     stripeCustomerId: text("stripe_customer_id"),
+    stripeSubscriptionId: text("stripe_subscription_id"),
+    stripeSubscriptionStatus: text("stripe_subscription_status"),
+    stripeProductId: text("stripe_product_id"),
+    stripePriceId: text("stripe_price_id"),
+    stripeCurrentPeriodEnd: timestamp("stripe_current_period_end", { withTimezone: true }),
+    stripeBillingMetadata: jsonb("stripe_billing_metadata").$type<Record<string, unknown>>().notNull().default({}),
     ...timestamps
   },
   (table) => ({
-    stripeCustomerIdx: index("profiles_stripe_customer_id_idx").on(table.stripeCustomerId)
+    stripeCustomerIdx: index("profiles_stripe_customer_id_idx").on(table.stripeCustomerId),
+    stripeSubscriptionIdx: index("profiles_stripe_subscription_id_idx").on(table.stripeSubscriptionId)
   })
 );
 
@@ -263,6 +270,8 @@ export const stripeCustomers = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id").notNull(),
     stripeCustomerId: text("stripe_customer_id").notNull(),
+    email: text("email"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
     ...timestamps
   },
   (table) => ({
@@ -280,12 +289,21 @@ export const stripeSubscriptions = pgTable(
     stripeCustomerId: text("stripe_customer_id").notNull(),
     stripeSubscriptionId: text("stripe_subscription_id").notNull(),
     status: text("status").notNull(),
+    stripeProductId: text("stripe_product_id"),
+    stripePriceId: text("stripe_price_id"),
+    currentPeriodStart: timestamp("current_period_start", { withTimezone: true }),
     currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+    cancelAt: timestamp("cancel_at", { withTimezone: true }),
+    canceledAt: timestamp("canceled_at", { withTimezone: true }),
+    trialEnd: timestamp("trial_end", { withTimezone: true }),
     metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
     ...timestamps
   },
   (table) => ({
     userIdx: index("stripe_subscriptions_user_id_idx").on(table.userId),
+    customerIdx: index("stripe_subscriptions_customer_id_idx").on(table.stripeCustomerId),
+    statusIdx: index("stripe_subscriptions_status_idx").on(table.status),
     subscriptionUniqueIdx: uniqueIndex("stripe_subscriptions_subscription_id_unique").on(
       table.stripeSubscriptionId
     )

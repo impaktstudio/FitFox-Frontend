@@ -11,7 +11,7 @@ export type FeatureFlagKey = (typeof featureFlagKeys)[number];
 
 export type FeatureFlagMap = Record<FeatureFlagKey, boolean>;
 
-export type FeatureFlagSource = "posthog" | "env_fallback";
+export type FeatureFlagSource = "posthog" | "default_fallback";
 
 export type EvaluatedFeatureFlags = {
   flags: FeatureFlagMap;

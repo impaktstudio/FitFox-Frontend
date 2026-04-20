@@ -72,13 +72,7 @@ const envSchema = z.object({
   INNGEST_DEV: booleanFromEnv.default(false),
   GPU_BACKEND_BASE_URL: optionalUrl,
   GPU_BACKEND_AUTH_TOKEN: z.string().optional(),
-  MASTRA_ENABLED: booleanFromEnv.default(false),
-  FEATURE_BACKEND_USE_LOCAL_PROCESSING: booleanFromEnv.default(true),
-  FEATURE_BACKEND_USE_GPU_WORKER: booleanFromEnv.default(false),
-  FEATURE_BACKEND_USE_QDRANT_SPARSE: booleanFromEnv.default(false),
-  FEATURE_BACKEND_USE_OPENROUTER: booleanFromEnv.default(false),
-  FEATURE_BACKEND_USE_MASTRA_WORKFLOW: booleanFromEnv.default(false),
-  FEATURE_BILLING_STRIPE_ENABLED: booleanFromEnv.default(false)
+  MASTRA_ENABLED: booleanFromEnv.default(false)
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
@@ -98,7 +92,6 @@ export function parseEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
       const missing: string[] = [];
       if (!env.SUPABASE_URL) missing.push("SUPABASE_URL");
       if (!env.SUPABASE_API_KEY) missing.push("SUPABASE_API_KEY");
-      if (env.FEATURE_BACKEND_USE_GPU_WORKER && !env.INNGEST_EVENT_KEY) missing.push("INNGEST_EVENT_KEY");
       if (!env.POSTHOG_DISABLED && !env.POSTHOG_API_KEY) missing.push("POSTHOG_API_KEY");
       if (missing.length > 0) {
         throw new ApiError("config_invalid", "Production configuration is incomplete", { missing });

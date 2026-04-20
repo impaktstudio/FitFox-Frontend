@@ -1,7 +1,7 @@
 import type { PostHog } from "posthog-node";
 import type { AppEnv } from "@/lib/config/env";
 import { getEnv, isLocalLike } from "@/lib/config/env";
-import { getEnvFeatureFlagDefaults } from "@/lib/feature-flags/env-defaults";
+import { defaultFeatureFlags } from "@/lib/feature-flags/defaults";
 import { featureFlagKeys, type EvaluatedFeatureFlags, type FeatureFlagMap } from "@/lib/feature-flags/types";
 import { getPostHogClient } from "@/lib/feature-flags/posthog";
 
@@ -26,13 +26,12 @@ export async function evaluateFeatureFlags(
   } = {}
 ): Promise<EvaluatedFeatureFlags> {
   const env = options.env ?? getEnv();
-  const defaults = getEnvFeatureFlagDefaults(env);
   const posthog = options.posthog ?? getPostHogClient(env);
 
   if (!posthog) {
     return {
-      flags: defaults,
-      source: "env_fallback",
+      flags: defaultFeatureFlags,
+      source: "default_fallback",
       fallbackReason: isLocalLike(env) ? "PostHog disabled in local/test mode" : "PostHog is not configured"
     };
   }
@@ -41,7 +40,7 @@ export async function evaluateFeatureFlags(
     const entries = await Promise.all(
       featureFlagKeys.map(async (key) => {
         const value = await posthog.getFeatureFlag(key, userId);
-        return [key, coercePostHogFlag(value, defaults[key])] as const;
+        return [key, coercePostHogFlag(value, defaultFeatureFlags[key])] as const;
       })
     );
 
@@ -51,8 +50,8 @@ export async function evaluateFeatureFlags(
     };
   } catch (error) {
     return {
-      flags: defaults,
-      source: "env_fallback",
+      flags: defaultFeatureFlags,
+      source: "default_fallback",
       fallbackReason: error instanceof Error ? error.message : "PostHog feature flag evaluation failed"
     };
   }

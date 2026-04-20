@@ -8,9 +8,7 @@ const env = parseEnv({
   AUTH_MODE: "test",
   TEST_AUTH_USER_ID: "00000000-0000-4000-8000-000000000001",
   POSTHOG_DISABLED: "false",
-  POSTHOG_API_KEY: "ph_test",
-  FEATURE_BACKEND_USE_LOCAL_PROCESSING: "true",
-  FEATURE_BACKEND_USE_OPENROUTER: "false"
+  POSTHOG_API_KEY: "ph_test"
 });
 
 describe("feature flags", () => {
@@ -27,7 +25,7 @@ describe("feature flags", () => {
     expect(evaluated.flags["backend-use-local-processing"]).toBe(false);
   });
 
-  it("falls back to env defaults when PostHog is unavailable", async () => {
+  it("falls back to default flag values when PostHog is unavailable", async () => {
     const evaluated = await evaluateFeatureFlags("user_1", {
       env,
       posthog: {
@@ -37,9 +35,31 @@ describe("feature flags", () => {
       }
     });
 
-    expect(evaluated.source).toBe("env_fallback");
+    expect(evaluated.source).toBe("default_fallback");
     expect(evaluated.flags["backend-use-local-processing"]).toBe(true);
     expect(evaluated.flags["backend-use-openrouter"]).toBe(false);
     expect(evaluated.fallbackReason).toContain("network down");
+  });
+
+  it("uses default flag values when PostHog is not configured", async () => {
+    const evaluated = await evaluateFeatureFlags("user_1", {
+      env: parseEnv({
+        NODE_ENV: "test",
+        APP_ENV: "test",
+        AUTH_MODE: "test",
+        TEST_AUTH_USER_ID: "00000000-0000-4000-8000-000000000001",
+        POSTHOG_DISABLED: "true"
+      })
+    });
+
+    expect(evaluated.source).toBe("default_fallback");
+    expect(evaluated.flags).toEqual({
+      "backend-use-local-processing": true,
+      "backend-use-gpu-worker": false,
+      "backend-use-qdrant-sparse": false,
+      "backend-use-openrouter": false,
+      "backend-use-mastra-workflow": false,
+      "billing-stripe-enabled": false
+    });
   });
 });
