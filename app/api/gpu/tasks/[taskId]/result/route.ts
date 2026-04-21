@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { ApiError } from "@/lib/api/errors";
 import { routeHandler } from "@/lib/api/handler";
-import { parseJsonBody } from "@/lib/api/validation";
 import { getEnv } from "@/lib/config/env";
+import { verifyGpuWorkerSignature } from "@/lib/gpu-worker/signature";
 import { completeTaskUsage } from "@/lib/usage/accounting";
 
 export const runtime = "nodejs";
@@ -12,15 +12,6 @@ const workerResultSchema = z.object({
   resultId: z.string().min(1).max(200),
   failureDetails: z.record(z.string(), z.unknown()).optional()
 });
-
-function workerSecretFromRequest(request: Request): string | null {
-  const authorization = request.headers.get("authorization");
-  if (authorization?.toLowerCase().startsWith("bearer ")) {
-    return authorization.slice("bearer ".length).trim();
-  }
-
-  return request.headers.get("x-gpu-worker-secret");
-}
 
 export const POST = routeHandler<{ taskId: string; status: "succeeded" | "failed"; duplicate: boolean }, {
   taskId?: string | string[];
@@ -33,20 +24,31 @@ export const POST = routeHandler<{ taskId: string; status: "succeeded" | "failed
     });
   }
 
-  if (workerSecretFromRequest(request) !== env.GPU_WORKER_CALLBACK_SECRET) {
-    throw new ApiError("auth_required", "GPU worker callback secret is invalid.");
-  }
-
   const taskId = typeof params.taskId === "string" ? params.taskId : null;
   if (!taskId) {
     throw new ApiError("bad_request", "GPU task id is required.");
   }
 
-  const body = await parseJsonBody(request, workerResultSchema);
+  const rawBody = await request.text();
+  const signatureHeader = request.headers.get("x-gpu-worker-signature");
+  verifyGpuWorkerSignature(env.GPU_WORKER_CALLBACK_SECRET, taskId, signatureHeader, rawBody);
+
+  let body: unknown;
+  try {
+    body = JSON.parse(rawBody);
+  } catch {
+    throw new ApiError("bad_request", "Request body must be valid JSON");
+  }
+
+  const parsed = workerResultSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ApiError("validation_failed", "Request validation failed");
+  }
+
   return completeTaskUsage({
     taskId,
-    status: body.status,
-    workerResultId: body.resultId,
-    failureDetails: body.failureDetails
+    status: parsed.data.status,
+    workerResultId: parsed.data.resultId,
+    failureDetails: parsed.data.failureDetails
   });
 });
