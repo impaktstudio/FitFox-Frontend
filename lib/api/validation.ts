@@ -3,17 +3,27 @@ import { z } from "zod";
 import { ApiError } from "@/lib/api/errors";
 
 function validationError(error: z.ZodError): ApiError {
-  return new ApiError("validation_failed", "Request validation failed", z.treeifyError(error));
+  console.warn("Request validation failed", z.treeifyError(error));
+  return new ApiError("validation_failed", "Request validation failed");
 }
+
+const maxBodySizeBytes = 1_048_576; // 1 MB
 
 export async function parseJsonBody<TSchema extends z.ZodType>(
   request: NextRequest | Request,
   schema: TSchema
 ): Promise<z.infer<TSchema>> {
+  const text = await request.text();
+  const byteLength = new TextEncoder().encode(text).length;
+
+  if (byteLength > maxBodySizeBytes) {
+    throw new ApiError("bad_request", "Request body exceeds maximum allowed size.");
+  }
+
   let body: unknown;
 
   try {
-    body = await request.json();
+    body = JSON.parse(text);
   } catch {
     throw new ApiError("bad_request", "Request body must be valid JSON");
   }

@@ -1,13 +1,25 @@
 import { ApiError } from "@/lib/api/errors";
 import { authFailure, authResponse, authUserPayload, parseAuthPayload, upsertSignupProfile } from "@/lib/auth/api";
+import { authEmailRateLimit, authRateLimit, checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/api/rate-limit";
 import { getBillingPlan } from "@/lib/billing/plans";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  const rateLimit = checkRateLimit(`auth:signup:${getClientIp(request)}`, authRateLimit);
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.resetAt);
+  }
+
   try {
     const payload = await parseAuthPayload(request);
+
+    const emailRateLimit = checkRateLimit(`auth:signup:email:${payload.email.toLowerCase()}`, authEmailRateLimit);
+    if (!emailRateLimit.allowed) {
+      return rateLimitResponse(emailRateLimit.resetAt);
+    }
+
     const plan = getBillingPlan(payload.billingPlanId);
 
     if (!plan) {
@@ -30,10 +42,8 @@ export async function POST(request: Request) {
     });
 
     if (error) {
-      throw new ApiError("provider_unavailable", error.message, {
-        provider: "supabase",
-        operation: "signUp"
-      });
+      console.warn("Supabase signUp error", { email: payload.email, message: error.message, code: error.code });
+      throw new ApiError("auth_required", "Invalid credentials or account already exists.");
     }
 
     if (!data.user) {

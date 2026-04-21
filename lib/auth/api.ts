@@ -15,18 +15,28 @@ export const authPayloadSchema = z.object({
   billingPlanId: z.enum(["trial", "weekly", "monthly", "annually"]).default("trial")
 });
 
+const maxBodySizeBytes = 1_048_576; // 1 MB
+
 export async function parseAuthPayload(request: Request): Promise<z.infer<typeof authPayloadSchema>> {
+  const text = await request.text();
+  const byteLength = new TextEncoder().encode(text).length;
+
+  if (byteLength > maxBodySizeBytes) {
+    throw new ApiError("bad_request", "Request body exceeds maximum allowed size.");
+  }
+
   let body: unknown;
 
   try {
-    body = await request.json();
+    body = JSON.parse(text);
   } catch {
     throw new ApiError("bad_request", "Request body must be valid JSON");
   }
 
   const parsed = authPayloadSchema.safeParse(body);
   if (!parsed.success) {
-    throw new ApiError("validation_failed", "Request validation failed", z.treeifyError(parsed.error));
+    console.warn("Auth payload validation failed", z.treeifyError(parsed.error));
+    throw new ApiError("validation_failed", "Request validation failed");
   }
 
   return parsed.data;
@@ -37,7 +47,7 @@ export function authResponse<T>(request: Request, data: T, session?: { access_to
   const response = apiSuccess(data, getRequestId(request));
 
   if (session) {
-    setAuthCookies(response, session, env.APP_ENV === "production");
+    setAuthCookies(response, session, env.APP_ENV !== "local");
   }
 
   return response;

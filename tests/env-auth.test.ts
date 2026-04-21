@@ -89,9 +89,20 @@ describe("env parsing", () => {
     expect(getProviderReadiness(env).find((item) => item.provider === "inngest")?.status).toBe("configured");
   });
 
-  it("marks Sentry configured when a DSN is present", () => {
+  it("keeps Sentry disabled locally unless explicitly opted in", () => {
     const env = parseEnv({
       ...baseEnv,
+      SENTRY_DSN: "https://public@example.com/1"
+    });
+
+    expect(getProviderReadiness(env).find((item) => item.provider === "sentry")?.status).toBe("disabled");
+  });
+
+  it("marks Sentry configured outside local/test when a DSN is present", () => {
+    const env = parseEnv({
+      ...baseEnv,
+      NODE_ENV: "production",
+      APP_ENV: "preview",
       SENTRY_DSN: "https://public@example.com/1"
     });
 
@@ -240,6 +251,20 @@ describe("test auth", () => {
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("APP_ENV", "test");
     vi.stubEnv("AUTH_MODE", "supabase");
+
+    const request = new NextRequest("https://fitfox.test/api/auth/smoke");
+
+    await expect(resolveAuthContext(request)).rejects.toMatchObject({
+      code: "auth_required",
+      status: 401
+    });
+  });
+
+  it("rejects test auth mode in non-local-like environments", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_ENV", "preview");
+    vi.stubEnv("AUTH_MODE", "test");
+    vi.stubEnv("TEST_AUTH_USER_ID", baseEnv.TEST_AUTH_USER_ID);
 
     const request = new NextRequest("https://fitfox.test/api/auth/smoke");
 

@@ -16,7 +16,16 @@ function bearerToken(request: NextRequest | Request): string | null {
     return authorization.slice("bearer ".length).trim();
   }
 
-  return readCookie(request.headers.get("cookie"), authCookieNames.accessToken);
+  const cookieHeader = request.headers.get("cookie");
+  for (const secure of [true, false]) {
+    const names = authCookieNames(secure);
+    const token = readCookie(cookieHeader, names.accessToken);
+    if (token) {
+      return token;
+    }
+  }
+
+  return null;
 }
 
 async function resolveSupabaseAuthContext(request: NextRequest | Request): Promise<AuthContext> {
@@ -62,6 +71,10 @@ export async function resolveAuthContext(request: NextRequest | Request): Promis
     return resolveSupabaseAuthContext(request);
   }
 
+  if (!isLocalLike(env)) {
+    throw new ApiError("auth_required", "Test auth mode is only allowed in local/test environments");
+  }
+
   const headerUserId = request.headers.get(testHeaderName);
   if (headerUserId) {
     if (!isLocalLike(env)) {
@@ -70,7 +83,8 @@ export async function resolveAuthContext(request: NextRequest | Request): Promis
 
     const parsed = uuid.safeParse(headerUserId);
     if (!parsed.success) {
-      throw new ApiError("validation_failed", "Test auth header must be a UUID", z.treeifyError(parsed.error));
+      console.warn("Test auth header validation failed", z.treeifyError(parsed.error));
+      throw new ApiError("validation_failed", "Test auth header must be a UUID");
     }
 
     return {
