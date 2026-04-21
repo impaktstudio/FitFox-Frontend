@@ -1,7 +1,12 @@
-import type { PostHog } from "posthog-node";
 import type { AppEnv } from "@/lib/config/env";
-import { getEnv, isLocalLike } from "@/lib/config/env";
-import { getPostHogClient } from "@/lib/feature-flags/posthog";
+import { evaluateRuntimeConfig, type RuntimeConfigPostHog } from "@/lib/feature-flags/runtime-config";
+import {
+  defaultUsagePricing,
+  type UsagePricingConfig,
+  type UsagePricingEvaluation
+} from "@/lib/usage/pricing-config";
+
+export type { UsagePricingConfig, UsagePricingEvaluation } from "@/lib/usage/pricing-config";
 
 export const usageBuckets = ["embeddings", "llm", "gpu_worker_time"] as const;
 
@@ -20,36 +25,6 @@ export type UsageCost = {
   costUsd: number;
 };
 
-export type UsagePricingConfig = {
-  standardPriceCap: number;
-  premiumPriceCap: number;
-  embeddingsUnitCostUsd: number;
-  llmUnitCostUsd: number;
-  gpuWorkerTimeUnitCostUsd: number;
-};
-
-export type UsagePricingEvaluation = {
-  pricing: UsagePricingConfig;
-  source: "posthog" | "default_fallback";
-  fallbackReason?: string;
-};
-
-const defaultUsagePricing: UsagePricingConfig = {
-  standardPriceCap: 0.6,
-  premiumPriceCap: 3,
-  embeddingsUnitCostUsd: 0.00002,
-  llmUnitCostUsd: 0.002,
-  gpuWorkerTimeUnitCostUsd: 0.05
-};
-
-const pricingFlagKeys = Object.keys(defaultUsagePricing) as (keyof UsagePricingConfig)[];
-
-function coercePositiveNumber(value: unknown, fallback: number): number {
-  const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
-
-  return Number.isFinite(numeric) && numeric >= 0 ? numeric : fallback;
-}
-
 function roundUsd(value: number): number {
   return Math.round(value * 1_000_000) / 1_000_000;
 }
@@ -58,39 +33,13 @@ export async function evaluateUsagePricing(
   userId: string,
   options: {
     env?: AppEnv;
-    posthog?: Pick<PostHog, "getFeatureFlag"> | null;
+    posthog?: RuntimeConfigPostHog | null;
+    trackExposure?: boolean;
   } = {}
 ): Promise<UsagePricingEvaluation> {
-  const env = options.env ?? getEnv();
-  const posthog = options.posthog ?? getPostHogClient(env);
+  const evaluated = await evaluateRuntimeConfig(userId, options);
 
-  if (!posthog) {
-    return {
-      pricing: defaultUsagePricing,
-      source: "default_fallback",
-      fallbackReason: isLocalLike(env) ? "PostHog disabled in local/test mode" : "PostHog is not configured"
-    };
-  }
-
-  try {
-    const entries = await Promise.all(
-      pricingFlagKeys.map(async (key) => {
-        const value = await posthog.getFeatureFlag(key, userId);
-        return [key, coercePositiveNumber(value, defaultUsagePricing[key])] as const;
-      })
-    );
-
-    return {
-      pricing: Object.fromEntries(entries) as UsagePricingConfig,
-      source: "posthog"
-    };
-  } catch (error) {
-    return {
-      pricing: defaultUsagePricing,
-      source: "default_fallback",
-      fallbackReason: error instanceof Error ? error.message : "PostHog pricing flag evaluation failed"
-    };
-  }
+  return evaluated.usagePricing;
 }
 
 export function capTierFromMetadata(metadata: Record<string, unknown> | null | undefined): "standard" | "premium" {

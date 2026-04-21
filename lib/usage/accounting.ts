@@ -120,9 +120,9 @@ function throwSupabaseError(error: SupabaseError | null, operation: string): voi
 function parseReservationResult(value: unknown): UsageReservationResult {
   const parsed = reservationResultSchema.safeParse(value);
   if (!parsed.success) {
+    console.warn("Supabase returned invalid usage reservation result", z.treeifyError(parsed.error));
     throw new ApiError("provider_unavailable", "Supabase returned an invalid usage reservation result.", {
-      provider: "supabase",
-      details: z.treeifyError(parsed.error)
+      provider: "supabase"
     });
   }
 
@@ -132,9 +132,9 @@ function parseReservationResult(value: unknown): UsageReservationResult {
 function parseCompletionResult(value: unknown): WorkerCompletionResult {
   const parsed = completionResultSchema.safeParse(value);
   if (!parsed.success) {
+    console.warn("Supabase returned invalid GPU task completion result", z.treeifyError(parsed.error));
     throw new ApiError("provider_unavailable", "Supabase returned an invalid GPU task completion result.", {
-      provider: "supabase",
-      details: z.treeifyError(parsed.error)
+      provider: "supabase"
     });
   }
 

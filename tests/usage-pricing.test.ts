@@ -21,11 +21,10 @@ const testEnv = parseEnv({
 describe("usage pricing", () => {
   it("uses standard and premium PostHog cap flags", async () => {
     const posthog = {
-      getFeatureFlag: vi.fn(async (key: string) => {
-        if (key === "standardPriceCap") return "0.75";
-        if (key === "premiumPriceCap") return "3.5";
-        return false;
-      })
+      getAllFlags: vi.fn(async () => ({
+        standardPriceCap: "0.75",
+        premiumPriceCap: "3.5"
+      }))
     };
 
     const evaluated = await evaluateUsagePricing("user_123", {
@@ -36,6 +35,7 @@ describe("usage pricing", () => {
     expect(evaluated.source).toBe("posthog");
     expect(evaluated.pricing.standardPriceCap).toBe(0.75);
     expect(evaluated.pricing.premiumPriceCap).toBe(3.5);
+    expect(posthog.getAllFlags).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to default caps when PostHog is unavailable", async () => {
