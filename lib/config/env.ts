@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ProviderName, ProviderReadiness } from "@/lib/api/types";
 import { ApiError } from "@/lib/api/errors";
+import { resolveSentryRuntimeConfig } from "@/lib/observability/sentry-config";
 
 const booleanFromEnv = z
   .string()
@@ -69,7 +70,16 @@ const envSchema = z.object({
   NEXT_PUBLIC_SENTRY_DSN: optionalUrl,
   SENTRY_ENVIRONMENT: optionalEnvString,
   NEXT_PUBLIC_SENTRY_ENVIRONMENT: optionalEnvString,
+  SENTRY_ENABLED: booleanFromEnv,
+  NEXT_PUBLIC_SENTRY_ENABLED: booleanFromEnv,
+  SENTRY_ENABLE_LOCAL: booleanFromEnv.default(false),
+  NEXT_PUBLIC_SENTRY_ENABLE_LOCAL: booleanFromEnv.default(false),
+  SENTRY_ERROR_SAMPLE_RATE: z.coerce.number().min(0).max(1).optional().default(1),
+  NEXT_PUBLIC_SENTRY_ERROR_SAMPLE_RATE: z.coerce.number().min(0).max(1).optional().default(1),
   SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).optional().default(0),
+  NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).optional().default(0),
+  NEXT_PUBLIC_SENTRY_REPLAYS_SESSION_SAMPLE_RATE: z.coerce.number().min(0).max(1).optional().default(0),
+  NEXT_PUBLIC_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE: z.coerce.number().min(0).max(1).optional().default(0),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   INNGEST_EVENT_KEY: optionalEnvString,
@@ -78,7 +88,8 @@ const envSchema = z.object({
   GPU_WORKER_CALLBACK_SECRET: optionalEnvString,
   GPU_BACKEND_BASE_URL: optionalUrl,
   GPU_BACKEND_AUTH_TOKEN: z.string().optional(),
-  MASTRA_ENABLED: booleanFromEnv.default(false)
+  MASTRA_ENABLED: booleanFromEnv.default(false),
+  TRUSTED_PROXY_COUNT: z.coerce.number().int().min(0).max(10).optional().default(0)
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
@@ -96,6 +107,9 @@ export function parseEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
 
     if (env.APP_ENV === "production") {
       const missing: string[] = [];
+      if (env.AUTH_MODE === "test") {
+        missing.push("AUTH_MODE must be 'supabase' in production");
+      }
       if (!env.SUPABASE_URL) missing.push("SUPABASE_URL");
       if (!env.SUPABASE_API_KEY && !env.SUPABASE_SERVICE_ROLE_KEY) {
         missing.push("SUPABASE_API_KEY or SUPABASE_SERVICE_ROLE_KEY");
@@ -115,7 +129,8 @@ export function parseEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     }
 
     if (error instanceof z.ZodError) {
-      throw new ApiError("config_invalid", "Environment validation failed", z.treeifyError(error));
+      console.error("Environment validation failed", z.treeifyError(error));
+      throw new ApiError("config_invalid", "Environment validation failed");
     }
 
     throw error;
@@ -140,6 +155,7 @@ type ProviderConfig = {
 
 export function getProviderReadiness(env: AppEnv): ProviderReadiness[] {
   const missingRequiredRailwayBuckets = requiredRailwayBucketKeys.filter((key) => !env[key]);
+  const sentryConfig = resolveSentryRuntimeConfig("server", env);
 
   const providers: ProviderConfig[] = [
     {
@@ -181,8 +197,9 @@ export function getProviderReadiness(env: AppEnv): ProviderReadiness[] {
     },
     {
       provider: "sentry",
-      configured: Boolean(env.SENTRY_DSN || env.NEXT_PUBLIC_SENTRY_DSN),
-      localMessage: "Sentry is not configured.",
+      configured: sentryConfig.enabled,
+      enabled: sentryConfig.enabled,
+      localMessage: "Sentry is disabled locally unless explicitly opted in.",
       missingMessage: "SENTRY_DSN or NEXT_PUBLIC_SENTRY_DSN is required for error logging."
     },
     {
