@@ -1,4 +1,4 @@
-const sensitiveKeyPattern = /(api[_-]?key|token|secret|password|authorization|cookie|signature)/i;
+const sensitiveKeyPattern = /(api[_-]?key|token|secret|password|authorization|cookie|signature|credential|private[_-]?key|access[_-]?token|refresh[_-]?token)/i;
 const maxStringLength = 500;
 const maxArrayLength = 25;
 

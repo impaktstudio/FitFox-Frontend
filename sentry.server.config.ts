@@ -1,10 +1,17 @@
 import * as Sentry from "@sentry/nextjs";
+import { resolveSentryRuntimeConfig, shouldDropSentryEvent } from "@/lib/observability/sentry-config";
 
-const dsn = process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN;
+const sentryConfig = resolveSentryRuntimeConfig("server");
 
 Sentry.init({
-  dsn,
-  enabled: Boolean(dsn),
-  environment: process.env.SENTRY_ENVIRONMENT ?? process.env.APP_ENV,
-  tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? 0)
+  dsn: sentryConfig.dsn,
+  enabled: sentryConfig.enabled,
+  environment: sentryConfig.environment,
+  sampleRate: sentryConfig.sampleRate,
+  tracesSampleRate: sentryConfig.tracesSampleRate,
+  sendDefaultPii: false,
+  maxBreadcrumbs: 50,
+  beforeSend(event) {
+    return shouldDropSentryEvent(event) ? null : event;
+  }
 });
