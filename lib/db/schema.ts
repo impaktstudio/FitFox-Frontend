@@ -287,7 +287,8 @@ export const stripeCustomers = pgTable(
   (table) => ({
     userIdx: index("stripe_customers_user_id_idx").on(table.userId),
     userUniqueIdx: uniqueIndex("stripe_customers_user_id_unique").on(table.userId),
-    customerUniqueIdx: uniqueIndex("stripe_customers_stripe_customer_id_unique").on(table.stripeCustomerId)
+    customerUniqueIdx: uniqueIndex("stripe_customers_stripe_customer_id_unique").on(table.stripeCustomerId),
+    emailIdx: index("stripe_customers_email_idx").on(table.email)
   })
 );
 

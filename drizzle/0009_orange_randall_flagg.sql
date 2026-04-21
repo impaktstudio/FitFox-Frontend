@@ -1,0 +1,1 @@
+CREATE INDEX "stripe_customers_email_idx" ON "stripe_customers" USING btree ("email");

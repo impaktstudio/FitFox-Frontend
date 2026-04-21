@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { z } from "zod";
 import { ApiError } from "@/lib/api/errors";
 import { getEnv } from "@/lib/config/env";
+import { recordProviderRun } from "@/lib/observability/provider-runs";
 import { getStripeClient } from "@/lib/stripe/client";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -247,7 +248,21 @@ function getDefaultStripeWebhookStore(): StripeWebhookStore {
     async getUserIdByEmail(email) {
       const normalizedEmail = email.toLowerCase();
 
-      for (let page = 1; page <= 10; page += 1) {
+      const { data: customer, error: customerError } = await supabase
+        .from("stripe_customers")
+        .select("user_id")
+        .ilike("email", normalizedEmail)
+        .maybeSingle();
+
+      if (customerError) {
+        throwSupabaseError(customerError, "selectStripeCustomerByEmail");
+      }
+
+      if (typeof customer?.user_id === "string") {
+        return customer.user_id;
+      }
+
+      for (let page = 1; page <= 3; page += 1) {
         const { data, error } = await supabase.auth.admin.listUsers({
           page,
           perPage: 1000
@@ -506,31 +521,67 @@ export async function processStripeWebhookEvent(
   event: Stripe.Event,
   store: StripeWebhookStore = getDefaultStripeWebhookStore()
 ): Promise<StripeWebhookResult> {
-  const received = await store.markEventReceived({
-    stripeEventId: event.id,
-    eventType: event.type,
-    payload: stripePayload(event)
-  });
+  const startedAt = performance.now();
+  const routeName = "stripe_webhook";
 
-  if (received === "duplicate_processed") {
+  try {
+    const received = await store.markEventReceived({
+      stripeEventId: event.id,
+      eventType: event.type,
+      payload: stripePayload(event)
+    });
+
+    if (received === "duplicate_processed") {
+      await recordProviderRun({
+        routeName,
+        providerName: "stripe",
+        executionMode: "remote",
+        latencyMs: Math.round(performance.now() - startedAt),
+        status: "skipped",
+        responsePayload: { eventId: event.id, eventType: event.type, duplicate: true, reason: "already_processed" }
+      });
+      return {
+        eventId: event.id,
+        eventType: event.type,
+        processed: true,
+        duplicate: true
+      };
+    }
+
+    const processed = await syncStripeEvent(event, store);
+
+    if (processed) {
+      await store.markEventProcessed(event.id);
+    }
+
+    await recordProviderRun({
+      routeName,
+      providerName: "stripe",
+      executionMode: "remote",
+      latencyMs: Math.round(performance.now() - startedAt),
+      status: "success",
+      responsePayload: { eventId: event.id, eventType: event.type, processed, duplicate: received === "duplicate_unprocessed" }
+    });
+
     return {
       eventId: event.id,
       eventType: event.type,
-      processed: true,
-      duplicate: true
+      processed,
+      duplicate: received === "duplicate_unprocessed"
     };
+  } catch (error) {
+    await recordProviderRun({
+      routeName,
+      providerName: "stripe",
+      executionMode: "remote",
+      latencyMs: Math.round(performance.now() - startedAt),
+      status: "failed",
+      errorDetails: {
+        message: error instanceof Error ? error.message : "Unknown Stripe webhook error",
+        eventId: event.id,
+        eventType: event.type
+      }
+    });
+    throw error;
   }
-
-  const processed = await syncStripeEvent(event, store);
-
-  if (processed) {
-    await store.markEventProcessed(event.id);
-  }
-
-  return {
-    eventId: event.id,
-    eventType: event.type,
-    processed,
-    duplicate: received === "duplicate_unprocessed"
-  };
 }
