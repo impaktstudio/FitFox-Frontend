@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/errors";
 import { parseEnv } from "@/lib/config/env";
 import { assertSubscriptionAllowsUsage, currentWeeklyUsagePeriod } from "@/lib/usage/accounting";
+import { estimateUsageCostsForContext, resolveGpuUsageContext } from "@/lib/usage/contexts";
 import {
   capTierFromMetadata,
   defaultPricingForTests,
@@ -78,6 +79,34 @@ describe("usage pricing", () => {
       { bucket: "llm", units: 2, unitCostUsd: 0.01, costUsd: 0.02 },
       { bucket: "gpu_worker_time", units: 3, unitCostUsd: 0.2, costUsd: 0.6 }
     ]);
+  });
+
+  it("derives GPU usage costs from server-owned usage contexts", () => {
+    const context = resolveGpuUsageContext({
+      taskType: "look.render",
+      payload: { lookId: "look_123" }
+    });
+    const costs = estimateUsageCostsForContext(context, defaultPricingForTests());
+
+    expect(context).toEqual({
+      source: "gpu_task_type",
+      taskType: "look.render",
+      units: { embeddings: 100, llm: 1, gpuWorkerTime: 2 }
+    });
+    expect(costs.map((cost) => cost.bucket)).toEqual(["embeddings", "llm", "gpu_worker_time"]);
+  });
+
+  it("uses a conservative GPU usage context for unknown task types", () => {
+    const context = resolveGpuUsageContext({
+      taskType: "custom.task",
+      payload: {}
+    });
+
+    expect(context).toEqual({
+      source: "conservative_fallback",
+      taskType: "custom.task",
+      units: { embeddings: 100, llm: 1, gpuWorkerTime: 2 }
+    });
   });
 });
 

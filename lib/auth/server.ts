@@ -1,7 +1,6 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { ApiError } from "@/lib/api/errors";
-import { authCookieNames, readCookie } from "@/lib/auth/cookies";
 import type { AuthContext } from "@/lib/auth/types";
 import { getEnv, isLocalLike } from "@/lib/config/env";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -14,15 +13,6 @@ function bearerToken(request: NextRequest | Request): string | null {
   const authorization = request.headers.get("authorization");
   if (authorization?.toLowerCase().startsWith("bearer ")) {
     return authorization.slice("bearer ".length).trim();
-  }
-
-  const cookieHeader = request.headers.get("cookie");
-  for (const secure of [true, false]) {
-    const names = authCookieNames(secure);
-    const token = readCookie(cookieHeader, names.accessToken);
-    if (token) {
-      return token;
-    }
   }
 
   return null;

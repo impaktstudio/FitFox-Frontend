@@ -3,12 +3,15 @@ import { ApiError } from "@/lib/api/errors";
 import { getEnv } from "@/lib/config/env";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
+  estimateUsageCostsForContext,
+  resolveGpuUsageContext,
+  type UsageContext
+} from "@/lib/usage/contexts";
+import {
   capTierFromMetadata,
-  estimateUsageCosts,
   evaluateUsagePricing,
   priceCapForTier,
   type UsageCost,
-  type UsageUnitInput
 } from "@/lib/usage/pricing";
 
 type SupabaseError = {
@@ -247,7 +250,7 @@ export async function reserveTaskUsage(input: {
   taskType: string;
   idempotencyKey?: string;
   payload: Record<string, unknown>;
-  usageUnits?: UsageUnitInput;
+  usageContext?: UsageContext;
   store?: UsageAccountingStore;
   now?: Date;
 }): Promise<UsageReservationContext> {
@@ -257,10 +260,14 @@ export async function reserveTaskUsage(input: {
 
   assertSubscriptionAllowsUsage(billing, now);
 
+  const usageContext = input.usageContext ?? resolveGpuUsageContext({
+    taskType: input.taskType,
+    payload: input.payload
+  });
   const pricing = await evaluateUsagePricing(input.userId);
   const capTier = capTierFromMetadata(billing?.metadata);
   const capUsd = priceCapForTier(pricing.pricing, capTier);
-  const costs = estimateUsageCosts(input.usageUnits, pricing.pricing);
+  const costs = estimateUsageCostsForContext(usageContext, pricing.pricing);
   const period = currentWeeklyUsagePeriod(now);
   const result = await store.reserveUsage({
     taskId: input.taskId,

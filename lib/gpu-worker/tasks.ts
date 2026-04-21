@@ -3,6 +3,7 @@ import { ApiError } from "@/lib/api/errors";
 import { getEnv, isLocalLike } from "@/lib/config/env";
 import { inngest } from "@/lib/inngest/client";
 import { defaultOpenRouterModelConfig } from "@/lib/openrouter/default-model";
+import { resolveGpuUsageContext, type UsageContext } from "@/lib/usage/contexts";
 import {
   createSupabaseUsageAccountingStore,
   reserveTaskUsage,
@@ -21,15 +22,8 @@ const taskName = z
 export const gpuWorkerTaskRequestSchema = z.object({
   taskType: taskName,
   payload: z.record(z.string(), z.unknown()).default({}),
-  usageUnits: z
-    .object({
-      embeddings: z.number().min(0).finite().optional(),
-      llm: z.number().min(0).finite().optional(),
-      gpuWorkerTime: z.number().min(0).finite().optional()
-    })
-    .optional(),
   idempotencyKey: z.string().min(1).max(200).optional()
-});
+}).strict();
 
 export type GpuWorkerTaskRequest = z.infer<typeof gpuWorkerTaskRequestSchema>;
 
@@ -39,7 +33,7 @@ export type GpuWorkerTaskEventData = {
   userId: string;
   requestId: string;
   payload: Record<string, unknown>;
-  usageUnits?: GpuWorkerTaskRequest["usageUnits"];
+  usageContext: UsageContext;
   modelConfig: typeof defaultOpenRouterModelConfig;
   submittedAt: string;
 };
@@ -76,7 +70,10 @@ function createTaskId(input: Pick<EnqueueGpuWorkerTaskInput, "idempotencyKey" | 
   return input.idempotencyKey ?? input.requestId;
 }
 
-export function createGpuWorkerTaskEvent(input: EnqueueGpuWorkerTaskInput): GpuWorkerTaskEvent {
+export function createGpuWorkerTaskEvent(
+  input: EnqueueGpuWorkerTaskInput,
+  usageContext = resolveGpuUsageContext({ taskType: input.taskType, payload: input.payload })
+): GpuWorkerTaskEvent {
   const taskId = createTaskId(input);
 
   return {
@@ -88,7 +85,7 @@ export function createGpuWorkerTaskEvent(input: EnqueueGpuWorkerTaskInput): GpuW
       userId: input.userId,
       requestId: input.requestId,
       payload: input.payload,
-      usageUnits: input.usageUnits,
+      usageContext,
       modelConfig: defaultOpenRouterModelConfig,
       submittedAt: new Date().toISOString()
     }
@@ -109,14 +106,18 @@ export async function enqueueGpuWorkerTask(
     throw new ApiError("provider_unavailable", message, { provider: "inngest" });
   }
 
-  const event = createGpuWorkerTaskEvent(input);
+  const usageContext = resolveGpuUsageContext({
+    taskType: input.taskType,
+    payload: input.payload
+  });
+  const event = createGpuWorkerTaskEvent(input, usageContext);
   const usage = await reserveTaskUsage({
     taskId: event.data.taskId,
     userId: input.userId,
     taskType: input.taskType,
     idempotencyKey: input.idempotencyKey,
     payload: input.payload,
-    usageUnits: input.usageUnits,
+    usageContext,
     store: usageStore
   });
 

@@ -3,6 +3,7 @@ import { ApiError } from "@/lib/api/errors";
 import {
   createGpuWorkerTaskEvent,
   enqueueGpuWorkerTask,
+  gpuWorkerTaskRequestSchema,
   gpuWorkerTaskRequestedEvent
 } from "@/lib/gpu-worker/tasks";
 import { defaultOpenRouterModelConfig } from "@/lib/openrouter/default-model";
@@ -11,7 +12,6 @@ import type { UsageAccountingStore, UsageReservationResult, WorkerCompletionResu
 const taskInput = {
   taskType: "look.render",
   payload: { lookId: "look_123" },
-  usageUnits: { embeddings: 100, llm: 1, gpuWorkerTime: 2 },
   idempotencyKey: "task_123",
   userId: "00000000-0000-4000-8000-000000000001",
   requestId: "req_123"
@@ -109,6 +109,11 @@ describe("GPU worker Inngest tasks", () => {
         userId: taskInput.userId,
         requestId: "req_123",
         payload: { lookId: "look_123" },
+        usageContext: {
+          source: "gpu_task_type",
+          taskType: "look.render",
+          units: { embeddings: 100, llm: 1, gpuWorkerTime: 2 }
+        },
         modelConfig: defaultOpenRouterModelConfig
       }
     });
@@ -118,7 +123,6 @@ describe("GPU worker Inngest tasks", () => {
         only: ["Fireworks"]
       }
     });
-    expect(event.data.usageUnits).toEqual({ embeddings: 100, llm: 1, gpuWorkerTime: 2 });
   });
 
   it("sends GPU worker tasks through Inngest in dev mode", async () => {
@@ -146,6 +150,16 @@ describe("GPU worker Inngest tasks", () => {
       "llm",
       "gpu_worker_time"
     ]);
+  });
+
+  it("rejects client-declared usage units at the API schema boundary", () => {
+    expect(() =>
+      gpuWorkerTaskRequestSchema.parse({
+        taskType: "look.render",
+        payload: { lookId: "look_123" },
+        usageUnits: { gpuWorkerTime: 1000 }
+      })
+    ).toThrow();
   });
 
   it("does not dispatch duplicate idempotent tasks twice", async () => {

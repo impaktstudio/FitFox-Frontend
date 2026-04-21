@@ -1,5 +1,5 @@
-import { AuthShowcase } from "@/components/auth/auth-showcase";
+import { redirect } from "next/navigation";
 
 export default function AuthThrowawayPage() {
-  return <AuthShowcase />;
+  redirect("/auth");
 }

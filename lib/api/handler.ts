@@ -25,6 +25,9 @@ export function routeHandler<TData, TParams = Record<string, string | string[] |
     try {
       const params = context.params ? await context.params : ({} as TParams);
       const data = await handler(request, { requestId, params });
+      if (data instanceof Response) {
+        return data;
+      }
       return apiSuccess(data, requestId);
     } catch (error) {
       const apiError = toApiError(error);
